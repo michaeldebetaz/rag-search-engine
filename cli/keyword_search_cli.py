@@ -1,8 +1,10 @@
 import argparse
 from lib.search_utils import (
     build_command,
+    idf_command,
     search_command,
     tf_command,
+    tf_idf_command,
 )
 
 
@@ -20,17 +22,30 @@ def main() -> None:
     tf_parser.add_argument("doc_id", type=int, help="Document ID")
     tf_parser.add_argument("word", type=str, help="Word to search for")
 
+    idf_parser = subparsers.add_parser(
+        "idf", help="Get inverse document frequency of a word"
+    )
+    idf_parser.add_argument("word", type=str, help="Word to search for")
+
+    tfidf_parser = subparsers.add_parser(
+        "tfidf", help="Get TF-IDF score of a word in a document"
+    )
+    tfidf_parser.add_argument("doc_id", type=int, help="Document ID")
+    tfidf_parser.add_argument("word", type=str, help="Word to search for")
+
     args = parser.parse_args()
 
     match args.command:
         case "search":
             search_command(args.query)
-
         case "build":
             build_command()
-
         case "tf":
             tf_command(args.doc_id, args.word)
+        case "idf":
+            idf_command(args.word)
+        case "tfidf":
+            tf_idf_command(args.doc_id, args.word)
         case _:
             parser.print_help()
 

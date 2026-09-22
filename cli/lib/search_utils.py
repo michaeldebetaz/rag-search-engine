@@ -1,4 +1,5 @@
 import json
+import math
 from pathlib import Path
 import string
 from typing import TypedDict
@@ -39,6 +40,13 @@ class InvertedIndex:
 
         self.term_frequencies[doc_id].update(tokens)
 
+    def keyword_search(self: Self, query: str) -> list[Movie]:
+        results: list[Movie] = []
+        for token in tokenize_text(query):
+            doc_ids = self.get_documents(token)
+            results.extend(self.docmap[doc_id] for doc_id in doc_ids)
+        return results
+
     def get_documents(self: Self, token: str) -> list[int]:
         if token not in self.index:
             return []
@@ -52,6 +60,17 @@ class InvertedIndex:
             raise ValueError(f"Document ID {doc_id} not found in term frequencies")
         return self.term_frequencies[doc_id].get(token, 0)
 
+    def get_idf(self: Self, word: str) -> float:
+        token = tokenize_word(word)
+        doc_count = len(self.docmap)
+        match_doc_count = len(self.get_documents(token))
+        return math.log((doc_count + 1) / (match_doc_count + 1))
+
+    def get_tf_idf(self: Self, doc_id: int, word: str) -> float:
+        tf = self.get_tf(doc_id, word)
+        idf = self.get_idf(word)
+        return tf * idf
+
     def build(self: Self) -> None:
         movies = load_movies()
         for movie in tqdm(movies):
@@ -60,7 +79,7 @@ class InvertedIndex:
             self.__add_document(id, f"{movie['title']} {movie['description']}")
 
     def save(self: Self) -> None:
-        BASE_DIR.mkdir(parents=True, exist_ok=True)
+        CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
         with open(self.index_path, "wb") as f:
             pickle.dump(self.index, f)
@@ -96,13 +115,30 @@ def search_command(query: str) -> None:
     print(f"Searching for: {query}")
     index = InvertedIndex()
     index.load()
-    print_results(keyword_search(query, index))
+    results = index.keyword_search(query)
+    results.sort(key=lambda movie: movie["id"])
+    for i, movie in enumerate(results[:5]):
+        print(f"{i + 1}. {movie['title']} (ID: {movie['id']})")
 
 
 def tf_command(doc_id: int, word: str) -> None:
     index = InvertedIndex()
     index.load()
     print(index.get_tf(doc_id, word))
+
+
+def idf_command(word: str) -> None:
+    index = InvertedIndex()
+    index.load()
+    idf = index.get_idf(word)
+    print(f"Inverse document frequency for '{word}': {idf:.2f}")
+
+
+def tf_idf_command(doc_id: int, word: str) -> None:
+    index = InvertedIndex()
+    index.load()
+    tf_idf = index.get_tf_idf(doc_id, word)
+    print(f"TF-IDF score of '{word}' in document '{doc_id}': {tf_idf:.2f}")
 
 
 def load_movies() -> list[Movie]:
@@ -129,21 +165,3 @@ def tokenize_word(word: str) -> str:
     if len(tokens) != 1:
         raise ValueError(f"Expected a single token, got: {tokens}")
     return tokens[0]
-
-
-def keyword_search(query: str, index: InvertedIndex) -> list[Movie]:
-    query_tokens = tokenize_text(query)
-
-    results: list[Movie] = []
-    for token in query_tokens:
-        doc_ids = index.get_documents(token)
-        results.extend(index.docmap[doc_id] for doc_id in doc_ids)
-        if len(results) >= 5:
-            break
-
-    return results[:5]
-
-
-def print_results(results: list[Movie]) -> None:
-    for i, movie in enumerate(results):
-        print(f"{i + 1}. {movie['title']} (ID: {movie['id']})")
