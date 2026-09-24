@@ -1,8 +1,8 @@
 import argparse
-from lib.search_utils import (
-    BM25_B,
-    BM25_K1,
+from lib.search_utils import BM25_B, BM25_K1
+from lib.keyword_search import (
     bm25idf_command,
+    bm25search_command,
     bm25tf_command,
     build_command,
     idf_command,
@@ -60,6 +60,21 @@ def main() -> None:
         "b", type=float, nargs="?", default=BM25_B, help="Tunable BM25 b parameter"
     )
 
+    # BM25 Search
+    bm25search_parser = subparsers.add_parser(
+        "bm25search", help="Search movies using full BM25 scoring"
+    )
+    bm25search_parser.add_argument("query", type=str, help="Search query")
+    bm25search_parser.add_argument(
+        "--limit", type=int, nargs="?", default=5, help="Limit the number of results"
+    )
+    bm25search_parser.add_argument(
+        "k1", type=float, nargs="?", default=BM25_K1, help="Tunable BM25 K1 parameter"
+    )
+    bm25search_parser.add_argument(
+        "b", type=float, nargs="?", default=BM25_B, help="Tunable BM25 b parameter"
+    )
+
     args = parser.parse_args()
 
     match args.command:
@@ -77,6 +92,13 @@ def main() -> None:
             bm25idf_command(args.term)
         case "bm25tf":
             bm25tf_command(args.doc_id, args.term, args.k1, args.b)
+        case "bm25search":
+            bm25search_command(
+                args.query,
+                args.limit,
+                args.k1,
+                args.b,
+            )
         case _:
             parser.print_help()
 
