@@ -2,10 +2,12 @@ import argparse
 from lib.search_utils import load_env
 from lib.semantic_search import (
     chunk,
+    embed_chunks,
     embed_query_text,
     embed_text,
     search,
-    semantic_chunk,
+    search_chunked,
+    semantic_chunk_command,
     verify_embeddings,
     verify_model,
 )
@@ -88,6 +90,23 @@ def main() -> None:
         help="Number of overlapping sentences between chunks (default: 0)",
     )
 
+    _ = subparsers.add_parser(
+        "embed_chunks", help="Generate embeddings for all chunks in the dataset"
+    )
+
+    search_chunked_parser = subparsers.add_parser(
+        "search_chunked", help="Search for a query in the chunked movie dataset"
+    )
+    search_chunked_parser.add_argument(
+        "query", type=str, help="Query text to search for in the chunked movie dataset"
+    )
+    search_chunked_parser.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="Limit the number of search results (default: 5)",
+    )
+
     args = parser.parse_args()
 
     match args.command:
@@ -104,9 +123,13 @@ def main() -> None:
         case "chunk":
             chunk(args.text, chunk_size=args.chunk_size, overlap=args.overlap)
         case "semantic_chunk":
-            semantic_chunk(
+            semantic_chunk_command(
                 args.text, max_chunk_size=args.max_chunk_size, overlap=args.overlap
             )
+        case "embed_chunks":
+            embed_chunks()
+        case "search_chunked":
+            search_chunked(args.query, limit=args.limit)
         case _:
             parser.print_help()
 
