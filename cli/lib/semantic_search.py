@@ -23,7 +23,7 @@ from lib.search_utils import (
 class SemanticSearch:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
         self.model: SentenceTransformer = SentenceTransformer(
-            model_name, device="cpu", token=os.getenv("HUGGING_FACE_ACCESS_TOKEN")
+            model_name, device="cpu", token=os.getenv("HUGGINGFACE_ACCESS_TOKEN")
         )
         self.embeddings: np.ndarray | None = None
         self.documents: list[Movie] | None = None

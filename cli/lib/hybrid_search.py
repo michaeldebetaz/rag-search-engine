@@ -1,3 +1,4 @@
+from lib.llm_utils import enhance_query, expand_query, rewrite_query
 from lib.keyword_search import InvertedIndex
 from lib.semantic_search import ChunkedSemanticSearch
 from lib.search_utils import (
@@ -114,9 +115,24 @@ def weighted_search_command(query: str, alpha: float, limit: int) -> None:
         print(f"  {result['document']['description'][:100]}...")
 
 
-def rrf_search_command(query: str, k: int, limit: int) -> None:
+def rrf_search_command(query: str, k: int, limit: int, method: str) -> None:
     documents = load_movies()
     hybrid_search = HybridSearch(documents)
+
+    enhanced_query: str | None = None
+    match method:
+        case "spell":
+            enhanced_query = enhance_query(query)
+        case "rewrite":
+            enhanced_query = rewrite_query(query)
+        case "expand":
+            enhanced_query = expand_query(query)
+        case _:
+            raise ValueError(f"Unknown enhancement method: {method}")
+    if enhanced_query != query:
+        print(f"Enhanced Query ({method}): '{query}' -> '{enhanced_query}'\n")
+        query = enhanced_query
+
     results = hybrid_search.rrf_search(query, k, limit)
     for i, result in enumerate(results):
         print(f"{i + 1}. {result['document']['title']}")

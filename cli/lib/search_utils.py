@@ -1,3 +1,4 @@
+import os
 import re
 from dotenv import load_dotenv
 import json
@@ -74,6 +75,11 @@ def load_env() -> None:
         raise FileNotFoundError(f"Environment file not found: {DOTENV_PATH}")
     if not load_dotenv(dotenv_path=DOTENV_PATH):
         raise RuntimeError(f"Failed to load environment variables from {DOTENV_PATH}")
+    if os.environ.get("HUGGINGFACE_ACCESS_TOKEN") is None:
+        raise RuntimeError("HUGGINGFACE_ACCESS_TOKEN is not set")
+
+    if os.environ.get("OPENROUTER_API_KEY") is None:
+        raise RuntimeError("OPENROUTER_API_KEY is not set")
 
 
 def save_pickle(path: Path, data: dict[Any, Any]) -> None:
