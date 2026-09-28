@@ -33,7 +33,7 @@ class InvertedIndex:
         self.doc_lengths_path: Path = CACHE_DIR / "doc_lengths.pkl"
 
     def __add_document(self: Self, doc_id: int, text: str) -> None:
-        tokens = self.__tokenize_text(text)
+        tokens = self.tokenize_text(text)
         self.doc_lengths[doc_id] = len(tokens)
         self.term_frequencies[doc_id].update(tokens)
         for token in set(tokens):
@@ -44,13 +44,13 @@ class InvertedIndex:
             return 0.0
         return sum(self.doc_lengths.values()) / len(self.doc_lengths)
 
-    def __tokenize_term(self: Self, term: str) -> str:
-        tokens = self.__tokenize_text(term)
+    def tokenize_term(self: Self, term: str) -> str:
+        tokens = self.tokenize_text(term)
         if len(tokens) != 1:
             raise ValueError(f"Expected a single token, got: {tokens}")
         return tokens[0]
 
-    def __tokenize_text(self: Self, text: str) -> list[str]:
+    def tokenize_text(self: Self, text: str) -> list[str]:
         text = text.strip().lower()
         for punc in string.punctuation:
             text = text.replace(punc, "")
@@ -83,7 +83,7 @@ class InvertedIndex:
     def keyword_search(self: Self, query: str) -> list[Movie]:
         seen_ids: set[int] = set()
         movies: list[Movie] = []
-        for token in self.__tokenize_text(query):
+        for token in self.tokenize_text(query):
             doc_ids = self.get_documents(token)
             for doc_id in doc_ids:
                 if doc_id not in seen_ids:
@@ -98,25 +98,22 @@ class InvertedIndex:
         ids.sort()
         return ids
 
-    def get_tf(self: Self, doc_id: int, term: str) -> int:
-        token = self.__tokenize_term(term)
+    def get_tf(self: Self, doc_id: int, token: str) -> int:
         if doc_id not in self.term_frequencies:
             raise ValueError(f"Document ID {doc_id} not found in term frequencies")
         return self.term_frequencies[doc_id].get(token, 0)
 
-    def get_idf(self: Self, term: str) -> float:
-        token = self.__tokenize_term(term)
+    def get_idf(self: Self, token: str) -> float:
         doc_count = len(self.docmap)
         match_doc_count = len(self.get_documents(token))
         return math.log((doc_count + 1) / (match_doc_count + 1))
 
-    def get_tfidf(self: Self, doc_id: int, term: str) -> float:
-        tf = self.get_tf(doc_id, term)
-        idf = self.get_idf(term)
+    def get_tfidf(self: Self, doc_id: int, token: str) -> float:
+        tf = self.get_tf(doc_id, token)
+        idf = self.get_idf(token)
         return tf * idf
 
-    def get_bm25idf(self: Self, term: str) -> float:
-        token = self.__tokenize_term(term)
+    def get_bm25idf(self: Self, token: str) -> float:
         doc_count = len(self.docmap)
         match_doc_count = len(self.get_documents(token))
         return math.log(
@@ -124,9 +121,9 @@ class InvertedIndex:
         )
 
     def get_bm25tf(
-        self: Self, doc_id: int, term: str, k1: float | None, b: float | None
+        self: Self, doc_id: int, token: str, k1: float | None, b: float | None
     ) -> float:
-        tf = self.get_tf(doc_id, term)
+        tf = self.get_tf(doc_id, token)
         if k1 is None:
             k1 = BM25_K1
         if b is None:
@@ -139,9 +136,9 @@ class InvertedIndex:
         return (tf * (k1 + 1)) / (tf + k1 * length_norm)
 
     def bm25(
-        self: Self, doc_id: int, term: str, k1: float | None, b: float | None
+        self: Self, doc_id: int, token: str, k1: float | None, b: float | None
     ) -> float:
-        return self.get_bm25tf(doc_id, term, k1=k1, b=b) * self.get_bm25idf(term)
+        return self.get_bm25tf(doc_id, token, k1=k1, b=b) * self.get_bm25idf(token)
 
     def bm25_search(
         self: Self,
@@ -152,7 +149,7 @@ class InvertedIndex:
     ) -> list[tuple[Movie, float]]:
         scores: dict[int, float] = defaultdict(float)
         for doc_id in self.docmap:
-            for token in self.__tokenize_text(query):
+            for token in self.tokenize_text(query):
                 scores[doc_id] += self.bm25(doc_id, token, k1=k1, b=b)
         head = sorted(scores.items(), key=lambda item: item[1], reverse=True)
         if limit is not None:
@@ -179,27 +176,31 @@ def search_command(query: str) -> None:
 def tf_command(doc_id: int, term: str) -> None:
     index = InvertedIndex()
     index.load()
-    print(index.get_tf(doc_id, term))
+    token = index.tokenize_term(term)
+    print(index.get_tf(doc_id, token))
 
 
 def idf_command(term: str) -> None:
     index = InvertedIndex()
     index.load()
-    idf = index.get_idf(term)
+    token = index.tokenize_term(term)
+    idf = index.get_idf(token)
     print(f"Inverse document frequency for '{term}': {idf:.2f}")
 
 
 def tfidf_command(doc_id: int, term: str) -> None:
     index = InvertedIndex()
     index.load()
-    tf_idf = index.get_tfidf(doc_id, term)
+    token = index.tokenize_term(term)
+    tf_idf = index.get_tfidf(doc_id, token)
     print(f"TF-IDF score of '{term}' in document '{doc_id}': {tf_idf:.2f}")
 
 
 def bm25idf_command(term: str) -> None:
     index = InvertedIndex()
     index.load()
-    bm25idf = index.get_bm25idf(term)
+    token = index.tokenize_term(term)
+    bm25idf = index.get_bm25idf(token)
     print(f"BM25 IDF score of '{term}': {bm25idf:.2f}")
 
 
@@ -208,7 +209,8 @@ def bm25tf_command(
 ) -> None:
     index = InvertedIndex()
     index.load()
-    bm25tf = index.get_bm25tf(doc_id, term, k1=k1, b=b)
+    token = index.tokenize_term(term)
+    bm25tf = index.get_bm25tf(doc_id, token, k1=k1, b=b)
     print(f"BM25 TF score of '{term}' in document '{doc_id}': {bm25tf:.2f}")
 
 
