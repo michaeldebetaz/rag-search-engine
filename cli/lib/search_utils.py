@@ -10,12 +10,15 @@ import numpy as np
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 DOTENV_PATH = BASE_DIR / ".env"
-MOVIES_PATH = BASE_DIR / "data" / "movies.json"
-STOPWORDS_PATH = BASE_DIR / "data" / "stopwords.txt"
+DATA_DIR = BASE_DIR / "data"
+MOVIES_PATH = DATA_DIR / "movies.json"
+STOPWORDS_PATH = DATA_DIR / "stopwords.txt"
 CACHE_DIR = BASE_DIR / "cache"
 MOVIE_EMBEDDINGS_PATH = CACHE_DIR / "movie_embeddings.npy"
 CHUNK_EMBEDDINGS_PATH = CACHE_DIR / "chunk_embeddings.npy"
 CHUNK_METADATA_PATH = CACHE_DIR / "chunk_metadata.json"
+GOLDEN_DATASET_PATH = DATA_DIR / "golden_dataset.json"
+
 
 BM25_K1: float = 1.5
 BM25_B: float = 0.75
@@ -68,6 +71,34 @@ class RRFSearchResult(TypedDict):
     bm25_rank: int
     semantic_rank: int
     rrf_score: float
+
+
+class RerankRRFSearchResult(TypedDict):
+    document: Movie
+    rerank_score: float
+    bm25_rank: int
+    semantic_rank: int
+    rrf_score: float
+
+
+class CrossEncoderRRFSearchResult(TypedDict):
+    document: Movie
+    cross_encoder_score: float
+    bm25_rank: int
+    semantic_rank: int
+    rrf_score: float
+
+
+class TestCase(TypedDict):
+    query: str
+    relevant_docs: list[str]
+
+
+class EvaluationResult(TypedDict):
+    query: str
+    precision_at_k: float
+    retrieved_titles: list[str]
+    relevant_titles: list[str]
 
 
 def load_env() -> None:

@@ -1,8 +1,9 @@
+import json
 import os
 
 from openai import OpenAI
 
-from .search_utils import load_env
+from .search_utils import RRFSearchResult, RerankRRFSearchResult, load_env
 
 load_env()
 
@@ -12,7 +13,7 @@ client = OpenAI(
 )
 
 
-def enhance_query(query: str) -> str:
+def correct_query(query: str) -> str:
     prompt = f"""Fix any spelling errors in the user-provided movie search query below.
 Correct only clear, high-confidence typos. Do not rewrite, add, remove, or reorder words.
 Preserve punctuation and capitalization unless a change is required for a typo fix.
@@ -62,6 +63,82 @@ Examples:
 User query: "{query}"
 """
     return ask_llm(prompt)
+
+
+def rank_invdividual_rrf_result(
+    query: str, result: RRFSearchResult
+) -> RerankRRFSearchResult:
+    doc = result["document"]
+    prompt = f"""Rate how well this movie matches the search query.
+
+Query: "{query}"
+Movie: {doc["title"]} - {doc["description"]}
+
+Consider:
+- Direct relevance to query
+- User intent (what they're looking for)
+- Content appropriateness
+
+Rate 0-10 (10 = perfect match).
+Output ONLY the number in your response, no other text or explanation.
+
+Score:"""
+    score_str = ask_llm(prompt)
+    if not score_str.isdigit():
+        raise ValueError(f"Expected a numeric score, got: {score_str}")
+    score = float(score_str)
+    rerank_result: RerankRRFSearchResult = {
+        "document": doc,
+        "rerank_score": score,
+        "bm25_rank": result["bm25_rank"],
+        "semantic_rank": result["semantic_rank"],
+        "rrf_score": result["rrf_score"],
+    }
+    return rerank_result
+
+
+def rank_batch_rrf_results(query: str, rrf_results: list[RRFSearchResult]) -> list[int]:
+    doc_list_str = "\n\n".join(
+        [
+            f"{result['document']['id']}: {result['document']['title']} - {result['document']['description']}"
+            for result in rrf_results
+        ]
+    )
+
+    prompt = f"""Rank the movies listed below by relevance to the following search query.
+
+Query: "{query}"
+
+Movies:
+{doc_list_str}
+
+Return the movie IDs in order of relevance, best match first.
+
+Your response must be a raw JSON array of integers.
+Do not wrap the JSON in Markdown. Do not use a ```json code block.
+Do not include any explanatory text.
+
+For example:
+[75, 12, 34, 2, 1]
+
+Ranking:"""
+
+    ranked_ids: list[int] = []
+    json_str = ask_llm(prompt)
+    try:
+        json_obj = json.loads(json_str)
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse JSON from LLM response: {json_str}")
+        raise ValueError(f"Failed to parse JSON from LLM response: {e}")
+
+    if not isinstance(json_obj, list):
+        raise ValueError(f"Expected a list of integers, got: {json_obj}")
+    for item in json_obj:
+        if not isinstance(item, int):
+            raise ValueError(f"Expected an integer in the list, got: {item}")
+        ranked_ids.append(item)
+
+    return ranked_ids
 
 
 def ask_llm(prompt: str, model: str = "openrouter/free") -> str:
