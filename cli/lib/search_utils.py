@@ -97,6 +97,8 @@ class TestCase(TypedDict):
 class EvaluationResult(TypedDict):
     query: str
     precision_at_k: float
+    recall_at_k: float
+    f1_score: float
     retrieved_titles: list[str]
     relevant_titles: list[str]
 

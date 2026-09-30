@@ -204,17 +204,25 @@ def rerank_results(
                 key=lambda x: x["cross_encoder_score"],
                 reverse=True,
             )
-            for i, result in enumerate(cross_encoder_results[:limit]):
-                print(f"{i + 1}. {result['document']['title']}")
-                print(f"  Cross Encoder Score: {result['cross_encoder_score']:.4f}")
-                print(f"  RRF Score: {result['rrf_score']:.4f}")
-                print(
-                    f"  BM25 Rank: {result['bm25_rank']}, Semantic Rank: {result['semantic_rank']}"
-                )
-                print(f"  {result['document']['description'][:100]}...")
+            # print_cross_encoder_results(cross_encoder_results)
+            print_cross_encoder_results(cross_encoder_results[:limit])
 
         case _:
-            raise ValueError(f"Unknown rerank method: {rerank_method}")
+            raise ValueError(f"Unknown rerank method: {method}")
+
+
+def print_cross_encoder_results(
+    cross_encoder_results: list[CrossEncoderRRFSearchResult],
+) -> None:
+    print(f"\nTop {len(cross_encoder_results)} Cross Encoder Reranked Results:")
+    for i, result in enumerate(cross_encoder_results):
+        print(f"{i + 1}. {result['document']['title']}")
+        print(f"  Cross Encoder Score: {result['cross_encoder_score']:.4f}")
+        print(f"  RRF Score: {result['rrf_score']:.4f}")
+        print(
+            f"  BM25 Rank: {result['bm25_rank']}, Semantic Rank: {result['semantic_rank']}"
+        )
+        print(f"  {result['document']['description'][:100]}...")
 
 
 def rrf_search_command(
@@ -224,6 +232,7 @@ def rrf_search_command(
     enhance_method: str | None,
     rerank_method: str | None,
 ) -> None:
+    print(f"Query: '{query}'")
     documents = load_movies()
     hybrid_search = HybridSearch(documents)
 
@@ -235,13 +244,18 @@ def rrf_search_command(
         limit_multiplier = 5
 
     rrf_results = hybrid_search.rrf_search(query, k, limit * limit_multiplier)
+    # print_rrf_results(rrf_results)
+
     if rerank_method is not None:
         rerank_results(query, rrf_results, rerank_method, limit)
-    else:
-        for i, result in enumerate(rrf_results):
-            print(f"{i + 1}. {result['document']['title']}")
-            print(f"  RRF Score: {result['rrf_score']:.4f}")
-            print(
-                f"  BM25 Rank: {result['bm25_rank']}, Semantic Rank: {result['semantic_rank']}"
-            )
-            print(f"  {result['document']['description'][:100]}...")
+
+
+def print_rrf_results(rrf_results: list[RRFSearchResult]) -> None:
+    print(f"\nTop {len(rrf_results)} RRF Search Results:")
+    for i, result in enumerate(rrf_results):
+        print(f"{i + 1}. {result['document']['title']}")
+        print(f"  RRF Score: {result['rrf_score']:.4f}")
+        print(
+            f"  BM25 Rank: {result['bm25_rank']}, Semantic Rank: {result['semantic_rank']}"
+        )
+        print(f"  {result['document']['description'][:100]}...")
