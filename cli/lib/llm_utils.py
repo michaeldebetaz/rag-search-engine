@@ -141,6 +141,73 @@ Ranking:"""
     return ranked_ids
 
 
+def evaluate_rrf_results(query: str, formatted_rrf_results: str) -> list[int]:
+    prompt = f"""Rate how relevant each result is to this query on a 0-3 scale:
+
+Query: "{query}"
+
+Results:
+{chr(10).join(formatted_rrf_results)}
+
+Scale:
+- 3: Highly relevant
+- 2: Relevant
+- 1: Marginally relevant
+- 0: Not relevant
+
+Do NOT give any numbers other than 0, 1, 2, or 3.
+
+Return ONLY the scores in the same order you were given the documents. Return a valid JSON list, nothing else. For example:
+
+[2, 0, 3, 2, 0, 1]"""
+    json_str = ask_llm(prompt)
+    try:
+        json_obj = json.loads(json_str)
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse JSON from LLM response: {json_str}")
+        raise ValueError(f"Failed to parse JSON from LLM response: {e}")
+
+    scores: list[int] = []
+    if not isinstance(json_obj, list):
+        raise ValueError(f"Expected a list, got: {json_obj}")
+    for item in json_obj:
+        if not isinstance(item, int):
+            raise ValueError(f"Expected an integer in the list, got: {item}")
+        scores.append(item)
+    return scores
+
+
+def rag_query(query: str, docs: str) -> str:
+    prompt = prompt = f"""You are a RAG agent for Webflyx, a movie streaming service.
+Your task is to provide a natural-language answer to the user's query based on documents retrieved during search.
+Provide a comprehensive answer that addresses the user's query.
+
+Query: {query}
+
+Documents:
+{docs}
+
+Answer:"""
+    return ask_llm(prompt)
+
+
+def summarize_results(query: str, results: str) -> str:
+    prompt = f"""Provide information useful to the query below by synthesizing data from multiple search results in detail.
+
+The goal is to provide comprehensive information so that users know what their options are.
+Your response should be information-dense and concise, with several key pieces of information about the genre, plot, etc. of each movie.
+
+This should be tailored to Webflyx users. Webflyx is a movie streaming service.
+
+Query: {query}
+
+Search results:
+{results}
+
+Provide a comprehensive 3–4 sentence answer that combines information from multiple sources:"""
+    return ask_llm(prompt)
+
+
 def ask_llm(prompt: str, model: str = "openrouter/free") -> str:
     response = client.chat.completions.create(
         model=model,

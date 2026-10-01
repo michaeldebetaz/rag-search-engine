@@ -3,6 +3,7 @@ from sentence_transformers import CrossEncoder
 
 from lib.llm_utils import (
     correct_query,
+    evaluate_rrf_results,
     expand_query,
     rank_batch_rrf_results,
     rank_invdividual_rrf_result,
@@ -86,7 +87,7 @@ class HybridSearch:
         )
         return [result for _, result in results[:limit]]
 
-    def rrf_search(self, query: str, k: int, limit: int = 10) -> list[RRFSearchResult]:
+    def rrf_search(self, query: str, k: int, limit: int) -> list[RRFSearchResult]:
         bm25_ranked = self._bm25_ranked(query, limit * LIMIT_MULTIPLIER)
         semantic_ranked = self._chunked_semantic_ranked(query, limit * LIMIT_MULTIPLIER)
 
@@ -231,6 +232,7 @@ def rrf_search_command(
     limit: int,
     enhance_method: str | None,
     rerank_method: str | None,
+    evaluate: bool,
 ) -> None:
     print(f"Query: '{query}'")
     documents = load_movies()
@@ -249,13 +251,22 @@ def rrf_search_command(
     if rerank_method is not None:
         rerank_results(query, rrf_results, rerank_method, limit)
 
+    if evaluate:
+        formatted_rrf_results = format_rrf_results(rrf_results)
+        scores = evaluate_rrf_results(query, formatted_rrf_results)
+        for i, (result, score) in enumerate(zip(rrf_results, scores)):
+            title = result["document"]["title"]
+            print(f"{i + 1}. {title}: {score}/3")
 
-def print_rrf_results(rrf_results: list[RRFSearchResult]) -> None:
-    print(f"\nTop {len(rrf_results)} RRF Search Results:")
+
+def format_rrf_results(rrf_results: list[RRFSearchResult]) -> str:
+    lines: list[str] = []
+    lines.append(f"\nTop {len(rrf_results)} RRF Search Results:")
     for i, result in enumerate(rrf_results):
-        print(f"{i + 1}. {result['document']['title']}")
-        print(f"  RRF Score: {result['rrf_score']:.4f}")
-        print(
+        lines.append(f"{i + 1}. {result['document']['title']}")
+        lines.append(f"  RRF Score: {result['rrf_score']:.4f}")
+        lines.append(
             f"  BM25 Rank: {result['bm25_rank']}, Semantic Rank: {result['semantic_rank']}"
         )
-        print(f"  {result['document']['description'][:100]}...")
+        lines.append(f"  {result['document']['description'][:100]}...")
+    return "\n".join(lines)
