@@ -1,7 +1,10 @@
+import base64
 import json
 import os
 
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
+from openai.types.completion_usage import CompletionUsage
 
 from .search_utils import RRFSearchResult, RerankRRFSearchResult, load_env
 
@@ -11,6 +14,24 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.environ.get("OPENROUTER_API_KEY"),
 )
+
+
+def ask_llm(prompt: str, model: str = "openrouter/free") -> str:
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    content = response.choices[0].message.content
+    if content is None:
+        raise ValueError("Response content is None.")
+    usage = response.usage
+    if usage is None:
+        raise ValueError("Usage information is not available in the response.")
+    prompt_tokens = usage.prompt_tokens
+    response_tokens = usage.completion_tokens
+    print(f"Prompt tokens: {prompt_tokens}")
+    print(f"Response tokens: {response_tokens}")
+    return content.strip()
 
 
 def correct_query(query: str) -> str:
@@ -208,10 +229,67 @@ Provide a comprehensive 3–4 sentence answer that combines information from mul
     return ask_llm(prompt)
 
 
-def ask_llm(prompt: str, model: str = "openrouter/free") -> str:
+def answer_with_citations(query: str, docs: str) -> str:
+    prompt = f"""Answer the query below and give information based on the provided documents.
+
+The answer should be tailored to users of Webflyx, a movie streaming service.
+If not enough information is available to provide a good answer, say so, but give the best answer possible while citing the sources available.
+
+Query: {query}
+
+Documents:
+{docs}
+
+Instructions:
+- Provide a comprehensive answer that addresses the query
+- Cite sources in the format [1], [2], etc. when referencing information
+- If sources disagree, mention the different viewpoints
+- If the answer isn't in the provided documents, say "I don't have enough information"
+- Be direct and informative
+
+Answer:"""
+    return ask_llm(prompt)
+
+
+def answer_question(query: str, docs: str) -> str:
+    prompt = f"""Answer the user's question based on the provided movies that are available on Webflyx, a streaming service.
+
+Question: {query}
+
+Documents:
+{docs}
+
+Instructions:
+- Answer questions directly and concisely
+- Be casual and conversational
+- Don't be cringe or hype-y
+- Talk like a normal person would in a chat conversation
+
+Answer:"""
+    return ask_llm(prompt)
+
+
+def rewrite_query_with_image(
+    image: bytes, mime: str, query: str
+) -> tuple[str, CompletionUsage]:
+    system_prompt = f"""Given the included image and text query, rewrite the text query to improve search results from a movie database. Make sure to:
+- Synthesize visual and textual information
+- Focus on movie-specific details (actors, scenes, style, etc.)
+- Return only the rewritten query, without any additional commentary"""
+
+    data_url = f"data:{mime};base64,{base64.b64encode(image).decode()}"
+    messages: list[ChatCompletionMessageParam] = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": system_prompt.strip()},
+                {"type": "image_url", "image_url": {"url": data_url}},
+                {"type": "text", "text": query.strip()},
+            ],
+        }
+    ]
     response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
+        model="openrouter/free", messages=messages
     )
     content = response.choices[0].message.content
     if content is None:
@@ -219,8 +297,5 @@ def ask_llm(prompt: str, model: str = "openrouter/free") -> str:
     usage = response.usage
     if usage is None:
         raise ValueError("Usage information is not available in the response.")
-    prompt_tokens = usage.prompt_tokens
-    response_tokens = usage.completion_tokens
-    print(f"Prompt tokens: {prompt_tokens}")
-    print(f"Response tokens: {response_tokens}")
-    return content.strip()
+    rewritten_query = content.strip()
+    return rewritten_query, usage

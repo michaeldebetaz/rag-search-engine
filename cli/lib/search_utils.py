@@ -18,6 +18,7 @@ MOVIE_EMBEDDINGS_PATH = CACHE_DIR / "movie_embeddings.npy"
 CHUNK_EMBEDDINGS_PATH = CACHE_DIR / "chunk_embeddings.npy"
 CHUNK_METADATA_PATH = CACHE_DIR / "chunk_metadata.json"
 GOLDEN_DATASET_PATH = DATA_DIR / "golden_dataset.json"
+PADDINGTON_JPEG_PATH = DATA_DIR / "paddington.jpeg"
 
 
 BM25_K1: float = 1.5

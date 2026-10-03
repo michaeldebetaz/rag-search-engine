@@ -1,6 +1,11 @@
 import argparse
 
-from lib.rag_utils import rag_command, summarize_command
+from lib.rag_utils import (
+    citations_command,
+    question_command,
+    rag_command,
+    summarize_command,
+)
 
 
 def main() -> None:
@@ -43,6 +48,42 @@ def main() -> None:
         help="Number of documents to summarize (default: 5)",
     )
 
+    citations_parser = subparsers.add_parser(
+        "citations", help="Answer a query with citations from the retrieved documents"
+    )
+    citations_parser.add_argument(
+        "query", type=str, help="Query for answering with citations"
+    )
+    citations_parser.add_argument(
+        "--k",
+        type=int,
+        default=60,
+        help="Number of top documents to retrieve (default: 60)",
+    )
+    citations_parser.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="Number of documents to return (default: 5)",
+    )
+
+    question_parser = subparsers.add_parser(
+        "question", help="Answer a question based on the retrieved documents"
+    )
+    question_parser.add_argument("query", type=str, help="Question to answer")
+    question_parser.add_argument(
+        "--k",
+        type=int,
+        default=60,
+        help="Number of top documents to retrieve (default: 60)",
+    )
+    question_parser.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="Number of documents to return (default: 5)",
+    )
+
     args = parser.parse_args()
 
     match args.command:
@@ -50,6 +91,10 @@ def main() -> None:
             rag_command(args.query, args.k, args.limit)
         case "summarize":
             summarize_command(args.query, args.k, args.limit)
+        case "citations":
+            citations_command(args.query, args.k, args.limit)
+        case "question":
+            question_command(args.query, args.k, args.limit)
         case _:
             parser.print_help()
 

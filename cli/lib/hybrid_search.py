@@ -268,5 +268,5 @@ def format_rrf_results(rrf_results: list[RRFSearchResult]) -> str:
         lines.append(
             f"  BM25 Rank: {result['bm25_rank']}, Semantic Rank: {result['semantic_rank']}"
         )
-        lines.append(f"  {result['document']['description'][:100]}...")
+        lines.append(f"  {result['document']['description']}...")
     return "\n".join(lines)
